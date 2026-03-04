@@ -9,9 +9,11 @@ const mockListenToKeyEvents = vi.fn();
 
 let mockCanvas;
 let lastCamera;
+let createdMeshes;
 
 vi.mock('three', () => {
   mockCanvas = document.createElement('canvas');
+  createdMeshes = [];
   return {
     Scene: vi.fn(function() { return { add: mockAdd }; }),
     PerspectiveCamera: vi.fn(function() {
@@ -26,8 +28,15 @@ vi.mock('three', () => {
       return { setSize: mockSetSize, domElement: mockCanvas, render: mockRender };
     }),
     BoxGeometry: vi.fn(function() {}),
+    PlaneGeometry: vi.fn(function() {}),
     MeshBasicMaterial: vi.fn(function() {}),
-    Mesh: vi.fn(function(geometry, material) { return { geometry, material }; }),
+    CanvasTexture: vi.fn(function() { return { wrapS: 0, wrapT: 0, repeat: { set: vi.fn() } }; }),
+    Mesh: vi.fn(function(geometry, material) {
+      const mesh = { geometry, material, position: { y: 0 }, rotation: { x: 0 } };
+      createdMeshes.push(mesh);
+      return mesh;
+    }),
+    RepeatWrapping: 1000,
   };
 });
 
@@ -37,11 +46,14 @@ vi.mock('three/addons/controls/OrbitControls.js', () => ({
   }),
 }));
 
+HTMLCanvasElement.prototype.getContext = () => ({ fillStyle: '', fillRect: vi.fn() });
+
 const { App } = await import('./main.js');
 
 describe('App', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    createdMeshes = [];
     vi.clearAllMocks();
   });
 
@@ -60,9 +72,22 @@ describe('App', () => {
     expect(mockListenToKeyEvents).toHaveBeenCalledWith(window);
   });
 
-  it('adds the cube to the scene', () => {
+  it('adds both cube and ground to the scene', () => {
     new App();
-    expect(mockAdd).toHaveBeenCalledTimes(1);
+    expect(mockAdd).toHaveBeenCalledTimes(2);
+  });
+
+  it('positions the cube at y = 1', () => {
+    new App();
+    const cube = createdMeshes[0];
+    expect(cube.position.y).toBe(1);
+  });
+
+  it('places the ground at y = 0 rotated flat', () => {
+    new App();
+    const ground = createdMeshes[1];
+    expect(ground.position.y).toBe(0);
+    expect(ground.rotation.x).toBeCloseTo(-Math.PI / 2);
   });
 
   it('calls controls.update() and renderer.render() each frame', () => {

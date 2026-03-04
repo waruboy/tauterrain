@@ -6,6 +6,7 @@ export class App {
   #camera;
   #renderer;
   #cube;
+  #ground;
   #controls;
 
   constructor() {
@@ -17,7 +18,11 @@ export class App {
     document.body.appendChild(this.#renderer.domElement);
 
     this.#cube = this.#createCube();
+    this.#cube.position.y = 1;
     this.#scene.add(this.#cube);
+
+    this.#ground = this.#createGround();
+    this.#scene.add(this.#ground);
 
     this.#camera.position.z = 5;
 
@@ -25,6 +30,35 @@ export class App {
     this.#controls.listenToKeyEvents(window);
 
     window.addEventListener('resize', () => this.#onResize());
+  }
+
+  #createGround() {
+    const size = 64;
+    const tileCount = 8;
+    const tileSize = size / tileCount;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    for (let row = 0; row < tileCount; row++) {
+      for (let col = 0; col < tileCount; col++) {
+        ctx.fillStyle = (row + col) % 2 === 0 ? '#888888' : '#444444';
+        ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+
+    const geometry = new THREE.PlaneGeometry(20, 20);
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const ground = new THREE.Mesh(geometry, material);
+    ground.rotation.x = -Math.PI / 2;
+    return ground;
   }
 
   #createCube() {
