@@ -27,7 +27,6 @@ vi.mock('three', () => {
     WebGLRenderer: vi.fn(function() {
       return { setSize: mockSetSize, domElement: mockCanvas, render: mockRender };
     }),
-    BoxGeometry: vi.fn(function() {}),
     PlaneGeometry: vi.fn(function() {}),
     MeshBasicMaterial: vi.fn(function() {}),
     CanvasTexture: vi.fn(function() { return { wrapS: 0, wrapT: 0, repeat: { set: vi.fn() } }; }),
@@ -72,20 +71,14 @@ describe('App', () => {
     expect(mockListenToKeyEvents).toHaveBeenCalledWith(window);
   });
 
-  it('adds both cube and ground to the scene', () => {
+  it('adds the ground to the scene', () => {
     new App();
-    expect(mockAdd).toHaveBeenCalledTimes(2);
-  });
-
-  it('positions the cube at y = 1', () => {
-    new App();
-    const cube = createdMeshes[0];
-    expect(cube.position.y).toBe(1);
+    expect(mockAdd).toHaveBeenCalledTimes(1);
   });
 
   it('places the ground at y = 0 rotated flat', () => {
     new App();
-    const ground = createdMeshes[1];
+    const ground = createdMeshes[0];
     expect(ground.position.y).toBe(0);
     expect(ground.rotation.x).toBeCloseTo(-Math.PI / 2);
   });

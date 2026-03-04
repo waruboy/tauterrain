@@ -5,7 +5,6 @@ export class App {
   #scene;
   #camera;
   #renderer;
-  #cube;
   #ground;
   #controls;
 
@@ -16,10 +15,6 @@ export class App {
 
     this.#renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(this.#renderer.domElement);
-
-    this.#cube = this.#createCube();
-    this.#cube.position.y = 1;
-    this.#scene.add(this.#cube);
 
     this.#ground = this.#createGround();
     this.#scene.add(this.#ground);
@@ -59,12 +54,6 @@ export class App {
     const ground = new THREE.Mesh(geometry, material);
     ground.rotation.x = -Math.PI / 2;
     return ground;
-  }
-
-  #createCube() {
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-    return new THREE.Mesh(geometry, material);
   }
 
   #onResize() {
