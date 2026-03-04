@@ -8,7 +8,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "three": "^0.171.0"
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "jsdom": "^28.1.0",
