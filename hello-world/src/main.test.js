@@ -40,11 +40,17 @@ vi.mock('three', () => {
     }),
     Group: vi.fn(function() {
       mockGroupAdd = vi.fn();
-      return { add: mockGroupAdd, position: { y: 0 } };
+      return { add: mockGroupAdd, position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } };
     }),
     RepeatWrapping: 1000,
   };
 });
+
+vi.mock('three/addons/misc/Timer.js', () => ({
+  Timer: vi.fn(function() {
+    return { connect: vi.fn(), update: vi.fn(), getDelta: vi.fn(() => 0.016) };
+  }),
+}));
 
 HTMLCanvasElement.prototype.getContext = () => ({ fillStyle: '', fillRect: vi.fn() });
 
@@ -116,6 +122,24 @@ describe('App', () => {
     const app = new App();
     app.animate();
     expect(mockRender).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves character forward on ArrowUp scaled by delta', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => {});
+    const app = new App();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+    const before = { x: app.characterPosition.x, z: app.characterPosition.z };
+    app.animate();
+    expect(app.characterPosition.z).toBeGreaterThan(before.z);
+  });
+
+  it('turns character left on ArrowLeft scaled by delta', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => {});
+    const app = new App();
+    const before = app.characterRotationY;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    app.animate();
+    expect(app.characterRotationY).toBeGreaterThan(before);
   });
 
   it('updates camera aspect and renderer size on window resize', () => {

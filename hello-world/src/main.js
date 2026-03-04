@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Timer } from 'three/addons/misc/Timer.js';
 
 export class App {
   #scene;
@@ -6,6 +7,11 @@ export class App {
   #renderer;
   #ground;
   #character;
+  #timer;
+  #keys = {};
+
+  #moveSpeed = 4;
+  #turnSpeed = 2;
 
   constructor() {
     this.#scene = new THREE.Scene();
@@ -24,7 +30,12 @@ export class App {
     this.#camera.position.set(0, 8, 5);
     this.#camera.lookAt(0, 0, 0);
 
-    window.addEventListener('resize', () => this.#onResize());
+    this.#timer = new Timer();
+    this.#timer.connect(document);
+
+    window.addEventListener('keydown', (e) => { this.#keys[e.key] = true; });
+    window.addEventListener('keyup',   (e) => { this.#keys[e.key] = false; });
+    window.addEventListener('resize',  () => this.#onResize());
   }
 
   #sideMaterials() {
@@ -99,14 +110,35 @@ export class App {
     return ground;
   }
 
+  #updateCharacter(delta) {
+    if (this.#keys['ArrowLeft'])  this.#character.rotation.y += this.#turnSpeed * delta;
+    if (this.#keys['ArrowRight']) this.#character.rotation.y -= this.#turnSpeed * delta;
+
+    const dir = this.#character.rotation.y;
+    if (this.#keys['ArrowUp']) {
+      this.#character.position.x += Math.sin(dir) * this.#moveSpeed * delta;
+      this.#character.position.z += Math.cos(dir) * this.#moveSpeed * delta;
+    }
+    if (this.#keys['ArrowDown']) {
+      this.#character.position.x -= Math.sin(dir) * this.#moveSpeed * delta;
+      this.#character.position.z -= Math.cos(dir) * this.#moveSpeed * delta;
+    }
+  }
+
   #onResize() {
     this.#camera.aspect = window.innerWidth / window.innerHeight;
     this.#camera.updateProjectionMatrix();
     this.#renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  get characterPosition() { return this.#character.position; }
+  get characterRotationY() { return this.#character.rotation.y; }
+
   animate() {
     requestAnimationFrame(() => this.animate());
+    this.#timer.update();
+    const delta = this.#timer.getDelta();
+    this.#updateCharacter(delta);
     this.#renderer.render(this.#scene, this.#camera);
   }
 }
