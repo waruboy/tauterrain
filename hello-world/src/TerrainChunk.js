@@ -1,8 +1,24 @@
 import * as THREE from 'three';
 import { terrainHeight } from './terrain-noise.js';
+import { CHUNK_SIZE } from './terrain-constants.js';
+const SEGMENTS   = 16;
 
-const CHUNK_SIZE = 16;  // world units per chunk
-const SEGMENTS = 16;    // vertex subdivisions per chunk
+const SAND  = new THREE.Color(0xd4c27a);
+const GRASS = new THREE.Color(0x4a7c4e);
+const ROCK  = new THREE.Color(0x7a7060);
+const SNOW  = new THREE.Color(0xeeeeee);
+
+const SAND_MAX  = -0.2; // below this → sand
+const ROCK_START =  1.2; // above this → rock/snow transition
+const SNOW_RANGE =  1.0; // height units over which rock blends into snow
+
+function heightColor(y, target) {
+  if (y < SAND_MAX)    return target.copy(SAND);
+  if (y < ROCK_START)  return target.lerpColors(GRASS, ROCK, (y - SAND_MAX) / (ROCK_START - SAND_MAX));
+  return target.lerpColors(ROCK, SNOW, Math.min((y - ROCK_START) / SNOW_RANGE, 1));
+}
+
+const sharedMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
 
 export class TerrainChunk {
   #mesh;
@@ -18,16 +34,25 @@ export class TerrainChunk {
     geometry.rotateX(-Math.PI / 2);
 
     const positions = geometry.attributes.position;
+    const colors = new Float32Array(positions.count * 3);
+    const color = new THREE.Color();
+
     for (let i = 0; i < positions.count; i++) {
       const wx = positions.getX(i) + chunkX * CHUNK_SIZE;
       const wz = positions.getZ(i) + chunkZ * CHUNK_SIZE;
-      positions.setY(i, terrainHeight(wx, wz));
+      const y = terrainHeight(wx, wz);
+      positions.setY(i, y);
+      heightColor(y, color);
+      colors[i * 3]     = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
     }
+
     positions.needsUpdate = true;
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
 
-    const material = new THREE.MeshLambertMaterial({ color: 0x4a7c4e });
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, sharedMaterial);
     mesh.position.set(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE);
     return mesh;
   }
