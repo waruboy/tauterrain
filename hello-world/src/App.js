@@ -7,6 +7,7 @@ import { terrainHeight } from './terrain-noise.js';
 import { Character } from './Character.js';
 import { NetworkManager } from './NetworkManager.js';
 import { PlayerManager } from './PlayerManager.js';
+import { JoinScreen } from './JoinScreen.js';
 
 const SKY_COLOR = 0x87ceeb;
 
@@ -37,6 +38,7 @@ export class App {
   #network;
   #players;
   #localId = null;
+  #joinScreen;
 
   constructor() {
     this.#scene    = new THREE.Scene();
@@ -72,20 +74,23 @@ export class App {
 
     this.#input            = new InputHandler();
     this.#cameraController = new CameraController(this.#camera);
-    this.#players = new PlayerManager(this.#scene);
-    this.#network = new NetworkManager();
+    this.#players    = new PlayerManager(this.#scene);
+    this.#network    = new NetworkManager();
+    this.#joinScreen = new JoinScreen((name, color) => {
+      this.#network.sendJoin(name, color);
+    });
 
     this.#network
       .on('welcome',        ({ id, seed }) => {
         this.#localId = id;
+        this.#joinScreen.dismiss();
         console.log(`connected as ${id}, seed: ${seed}`);
-        this.#network.sendJoin('Player', 0xff8800); // placeholder — task 7 follow-up
       })
       .on('world-state',    ({ players }) => this.#players.applyWorldState(players, this.#localId))
       .on('player-joined',  ({ id, color }) => this.#players.add(id, color))
       .on('player-left',    ({ id }) => this.#players.remove(id))
       .on('players-update', ({ players }) => this.#players.applyUpdates(players))
-      .on('error',          ({ message }) => console.warn(`server error: ${message}`));
+      .on('error',          ({ message }) => this.#joinScreen.showError(message));
 
     this.#timer = new Timer();
     this.#timer.connect(document);
