@@ -17,10 +17,11 @@ type Client struct {
 	send   chan []byte
 	joined bool
 
-	mu    sync.RWMutex
-	name  string
-	color int
+	mu           sync.Mutex
+	name         string
+	color        int
 	x, y, z, ry float64
+	dirty        bool
 }
 
 func newClient(hub *Hub, conn *websocket.Conn) *Client {
@@ -122,10 +123,10 @@ func (c *Client) handlePlayerUpdate(raw json.RawMessage) {
 	}
 
 	c.mu.Lock()
-	c.x  = payload.X
-	c.z  = payload.Z
-	c.ry = payload.RY
-	// Y is computed server-side in the broadcast tick (task 14)
+	c.x     = payload.X
+	c.z     = payload.Z
+	c.ry    = payload.RY
+	c.dirty = true
 	c.mu.Unlock()
 }
 
