@@ -6,8 +6,17 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	writeWait      = 10 * time.Second       // deadline for each write
+	pongWait       = 60 * time.Second       // max silence before disconnect
+	pingPeriod     = (pongWait * 9) / 10    // how often to send pings
+	maxMessageSize = 512                    // bytes — join + player-update are both small
 )
 
 type Client struct {
@@ -15,7 +24,7 @@ type Client struct {
 	hub    *Hub
 	conn   *websocket.Conn
 	send   chan []byte
-	joined bool
+	joined atomic.Bool // safe for concurrent reads without c.mu
 
 	mu           sync.Mutex
 	name         string
@@ -39,6 +48,13 @@ func (c *Client) readPump() {
 		c.conn.Close()
 	}()
 
+	c.conn.SetReadLimit(maxMessageSize)
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	for {
 		_, raw, err := c.conn.ReadMessage()
 		if err != nil {
@@ -52,12 +68,30 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-	defer c.conn.Close()
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
 
-	for msg := range c.send {
-		if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			log.Printf("write error for %s: %v", c.id, err)
-			return
+	for {
+		select {
+		case msg, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				log.Printf("write error for %s: %v", c.id, err)
+				return
+			}
+
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -73,14 +107,14 @@ func (c *Client) handleMessage(raw []byte) {
 	case "join":
 		c.handleJoin(msg.Payload)
 	case "player-update":
-		if c.joined {
+		if c.joined.Load() {
 			c.handlePlayerUpdate(msg.Payload)
 		}
 	}
 }
 
 func (c *Client) handleJoin(raw json.RawMessage) {
-	if c.joined {
+	if c.joined.Load() {
 		return
 	}
 
@@ -99,8 +133,8 @@ func (c *Client) handleJoin(raw json.RawMessage) {
 	c.mu.Lock()
 	c.name  = name
 	c.color = payload.Color
-	c.joined = true
 	c.mu.Unlock()
+	c.joined.Store(true)
 
 	// Send welcome + world state to this client
 	c.hub.send(c.id, "welcome", WelcomePayload{ID: c.id, Seed: terrainSeed})
@@ -136,6 +170,8 @@ func (c *Client) sendError(code, message string) {
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("failed to generate ID: %v", err)
+	}
 	return hex.EncodeToString(b)
 }

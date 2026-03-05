@@ -43,6 +43,7 @@ func (h *Hub) run() {
 			log.Printf("client connected: %s (%d total)", client.id, len(h.clients))
 
 		case client := <-h.unregister:
+			wasJoined := client.joined.Load()
 			h.mu.Lock()
 			if _, ok := h.clients[client.id]; ok {
 				delete(h.clients, client.id)
@@ -51,7 +52,7 @@ func (h *Hub) run() {
 			}
 			h.mu.Unlock()
 
-			if client.joined {
+			if wasJoined {
 				h.broadcast(client.id, "player-left", PlayerLeftPayload{ID: client.id})
 			}
 
@@ -71,7 +72,7 @@ func (h *Hub) broadcastTick() {
 
 	updates := make([]PlayerStateUpdate, 0, len(h.clients))
 	for _, c := range h.clients {
-		if !c.joined {
+		if !c.joined.Load() {
 			continue
 		}
 
@@ -156,7 +157,7 @@ func (h *Hub) worldState() []PlayerInfo {
 
 	players := make([]PlayerInfo, 0, len(h.clients))
 	for _, c := range h.clients {
-		if !c.joined {
+		if !c.joined.Load() {
 			continue
 		}
 		c.mu.Lock()

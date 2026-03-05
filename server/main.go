@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -15,13 +19,35 @@ func main() {
 	hub := newHub()
 	go hub.run()
 
-	http.HandleFunc("/", healthCheck)
-	http.HandleFunc("/ws", hub.handleWS)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", healthCheck)
+	mux.HandleFunc("/ws", hub.handleWS)
 
-	log.Printf("server listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
 	}
+
+	// Start server in background
+	go func() {
+		log.Printf("server listening on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	log.Println("shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
+	}
+	log.Println("stopped")
 }
 
 func healthCheck(w http.ResponseWriter, r *http.Request) {

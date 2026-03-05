@@ -1,8 +1,6 @@
 package main
 
-import "github.com/ojrac/opensimplex-go"
-
-// Must match constants in hello-world/src/terrain-noise.js
+// Must match constants in hello-world/src/terrain-noise.js exactly.
 const (
 	terrainScale       = 0.04
 	terrainAmplitude   = 5.0
@@ -11,7 +9,7 @@ const (
 	terrainPersistence = 0.5
 )
 
-var noise = opensimplex.New(int64(terrainSeed))
+var noiseGen = newSimplexNoise(uint32(terrainSeed))
 
 func terrainHeight(x, z float64) float64 {
 	value := 0.0
@@ -20,7 +18,7 @@ func terrainHeight(x, z float64) float64 {
 	max := 0.0
 
 	for i := 0; i < terrainOctaves; i++ {
-		value += noise.Eval2(x*terrainScale*frequency, z*terrainScale*frequency) * amplitude
+		value += noiseGen.noise2D(x*terrainScale*frequency, z*terrainScale*frequency) * amplitude
 		max += amplitude
 		amplitude *= terrainPersistence
 		frequency *= terrainLacunarity
