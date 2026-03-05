@@ -9,7 +9,10 @@ export class InputHandler {
   constructor() {
     this.#onKeyDown = (e) => {
       const key = e.key.toLowerCase();
-      if (PREVENT_DEFAULT_KEYS.has(key)) e.preventDefault();
+      const tag = document.activeElement?.tagName;
+      if (PREVENT_DEFAULT_KEYS.has(key) && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+      }
       this.#keys[key] = true;
     };
     this.#onKeyUp  = (e) => { this.#keys[e.key.toLowerCase()] = false; };
