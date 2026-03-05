@@ -3,7 +3,7 @@ import { Timer } from 'three';
 import { ChunkManager } from './ChunkManager.js';
 import { CameraController } from './CameraController.js';
 import { InputHandler } from './InputHandler.js';
-import { terrainHeight } from './terrain-noise.js';
+import { terrainHeight, initTerrain } from './terrain-noise.js';
 import { Character } from './Character.js';
 import { NetworkManager } from './NetworkManager.js';
 import { PlayerManager } from './PlayerManager.js';
@@ -84,8 +84,10 @@ export class App {
     });
 
     this.#network
-      .on('welcome',        ({ id, seed }) => {
+      .on('welcome', ({ id, seed }) => {
         this.#localId = id;
+        initTerrain(seed);
+        this.#chunks.reset();
         this.#joinScreen.dismiss();
         console.log(`connected as ${id}, seed: ${seed}`);
       })

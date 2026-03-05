@@ -13,6 +13,14 @@ export class ChunkManager {
     this.#scene = scene;
   }
 
+  reset() {
+    for (const [key, chunk] of this.#loaded) {
+      this.#scene.remove(chunk.object);
+      chunk.object.geometry.dispose();
+      this.#loaded.delete(key);
+    }
+  }
+
   update(playerX, playerZ) {
     const cx = Math.floor(playerX / CHUNK_SIZE);
     const cz = Math.floor(playerZ / CHUNK_SIZE);

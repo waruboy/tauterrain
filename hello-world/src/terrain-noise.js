@@ -9,21 +9,27 @@ function mulberry32(seed) {
   };
 }
 
-const seed = (typeof window !== 'undefined')
+const SCALE       = 0.04;
+const AMPLITUDE   = 5;
+const OCTAVES     = 4;
+const LACUNARITY  = 2;
+const PERSISTENCE = 0.5;
+
+// Default to URL seed so single-player / offline dev works without a server
+const urlSeed = (typeof window !== 'undefined')
   ? Number(new URLSearchParams(window.location.search).get('seed')) || 1
   : 1;
-const noise2D = createNoise2D(mulberry32(seed));
 
-const SCALE     = 0.04; // base frequency
-const AMPLITUDE = 5;    // max height in world units
-const OCTAVES   = 4;    // number of noise layers
-const LACUNARITY = 2;   // frequency multiplier per octave
-const PERSISTENCE = 0.5; // amplitude multiplier per octave
+let noise2D = createNoise2D(mulberry32(urlSeed));
 
 /**
- * Returns the terrain height at world position (x, z).
- * Uses fractional Brownian motion (FBM) for natural-looking terrain.
+ * Re-initialise noise with a seed from the server.
+ * Call this before any chunks are generated with the new seed.
  */
+export function initTerrain(seed) {
+  noise2D = createNoise2D(mulberry32(seed));
+}
+
 export function terrainHeight(x, z) {
   let value = 0;
   let amplitude = 1;
