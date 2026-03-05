@@ -5,6 +5,7 @@ import { CameraController } from './CameraController.js';
 import { InputHandler } from './InputHandler.js';
 import { terrainHeight } from './terrain-noise.js';
 import { Character } from './Character.js';
+import { NetworkManager } from './NetworkManager.js';
 
 const SKY_COLOR = 0x87ceeb;
 
@@ -32,6 +33,7 @@ export class App {
   #onResizeBound;
   #rafId;
   #running = false;
+  #network;
 
   constructor() {
     this.#scene    = new THREE.Scene();
@@ -51,6 +53,7 @@ export class App {
     cancelAnimationFrame(this.#rafId);
     window.removeEventListener('resize', this.#onResizeBound);
     this.#input.dispose();
+    this.#network.dispose();
   }
 
   #setupScene() {
@@ -65,6 +68,11 @@ export class App {
 
     this.#input            = new InputHandler();
     this.#cameraController = new CameraController(this.#camera);
+    this.#network          = new NetworkManager();
+
+    this.#network
+      .on('welcome', ({ seed }) => console.log(`connected, seed: ${seed}`))
+      .on('error',   ({ message }) => console.warn(`server error: ${message}`));
 
     this.#timer = new Timer();
     this.#timer.connect(document);
@@ -91,6 +99,7 @@ export class App {
     const groundY = terrainHeight(pos.x, pos.z);
     pos.y += (groundY - pos.y) * (1 - Math.pow(GROUND_SMOOTHING, delta));
     this.#chunks.update(pos.x, pos.z);
+    this.#network.queueUpdate(pos.x, pos.z, this.#character.rotationY);
   }
 
   animate() {

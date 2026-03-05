@@ -1,0 +1,7 @@
+{
+  "name": "tauterrain-server",
+  "scripts": {
+    "start": "go run .",
+    "build": "go build -o bin/server ."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "tauterrain",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n client,server -c cyan,green \"pnpm --filter hello-world dev\" \"cd server && go run .\"",
+    "build:client": "pnpm --filter hello-world build",
+    "build:server": "cd server && go build -o bin/server ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
