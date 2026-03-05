@@ -29,6 +29,10 @@ export class App {
   #cameraController;
   #chunks;
 
+  #onResizeBound;
+  #rafId;
+  #running = false;
+
   constructor() {
     this.#scene    = new THREE.Scene();
     this.#camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -38,7 +42,15 @@ export class App {
     document.body.appendChild(this.#renderer.domElement);
 
     this.#setupScene();
-    window.addEventListener('resize', () => this.#onResize());
+    this.#onResizeBound = () => this.#onResize();
+    window.addEventListener('resize', this.#onResizeBound);
+  }
+
+  dispose() {
+    this.#running = false;
+    cancelAnimationFrame(this.#rafId);
+    window.removeEventListener('resize', this.#onResizeBound);
+    this.#input.dispose();
   }
 
   #setupScene() {
@@ -82,7 +94,8 @@ export class App {
   }
 
   animate() {
-    requestAnimationFrame(() => this.animate());
+    this.#running = true;
+    this.#rafId = requestAnimationFrame(() => this.animate());
     this.#timer.update();
     const delta = this.#timer.getDelta();
     this.#updateCharacter(delta);

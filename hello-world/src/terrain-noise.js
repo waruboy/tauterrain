@@ -9,7 +9,9 @@ function mulberry32(seed) {
   };
 }
 
-const seed = Number(new URLSearchParams(window.location.search).get('seed')) || 1;
+const seed = (typeof window !== 'undefined')
+  ? Number(new URLSearchParams(window.location.search).get('seed')) || 1
+  : 1;
 const noise2D = createNoise2D(mulberry32(seed));
 
 const SCALE     = 0.04; // base frequency

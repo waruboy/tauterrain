@@ -15,15 +15,15 @@ export class Character {
   get rotationY() { return this.#group.rotation.y; }
 
   update(delta, keys) {
-    if (keys['ArrowLeft'])  this.#group.rotation.y += this.#turnSpeed * delta;
-    if (keys['ArrowRight']) this.#group.rotation.y -= this.#turnSpeed * delta;
+    if (keys['a'])  this.#group.rotation.y += this.#turnSpeed * delta;
+    if (keys['d']) this.#group.rotation.y -= this.#turnSpeed * delta;
 
     const dir = this.#group.rotation.y;
-    if (keys['ArrowUp']) {
+    if (keys['w']) {
       this.#group.position.x += Math.sin(dir) * this.#moveSpeed * delta;
       this.#group.position.z += Math.cos(dir) * this.#moveSpeed * delta;
     }
-    if (keys['ArrowDown']) {
+    if (keys['s']) {
       this.#group.position.x -= Math.sin(dir) * this.#moveSpeed * delta;
       this.#group.position.z -= Math.cos(dir) * this.#moveSpeed * delta;
     }
