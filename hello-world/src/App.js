@@ -10,6 +10,7 @@ export class App {
   #timer;
   #character;
   #keys = {};
+  #lookAt = new THREE.Vector3();
 
   constructor() {
     this.#scene = new THREE.Scene();
@@ -46,6 +47,23 @@ export class App {
     this.#timer.update();
     const delta = this.#timer.getDelta();
     this.#character.update(delta, this.#keys);
+
+    const pos = this.#character.position;
+    const angle = this.#character.rotationY;
+    const target = new THREE.Vector3(
+      pos.x - Math.sin(angle) * 5,
+      pos.y + 8,
+      pos.z - Math.cos(angle) * 5,
+    );
+    this.#camera.position.lerp(target, 1 - Math.pow(0.01, delta));
+    const lookAtTarget = new THREE.Vector3(
+      pos.x + Math.sin(angle) * 3,
+      pos.y,
+      pos.z + Math.cos(angle) * 3,
+    );
+    this.#lookAt.lerp(lookAtTarget, 1 - Math.pow(0.01, delta));
+    this.#camera.lookAt(this.#lookAt);
+
     this.#renderer.render(this.#scene, this.#camera);
   }
 }
