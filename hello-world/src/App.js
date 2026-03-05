@@ -20,7 +20,9 @@ const DIR_INTENSITY     = 1.2;
 const DIR_LIGHT_POS     = new THREE.Vector3(50, 80, 30);
 
 // Character
-const GROUND_SMOOTHING = 0.001;
+const GROUND_SMOOTHING      = 0.001;
+const RECONCILE_SMOOTHING   = 0.0001; // how fast to blend toward server-authoritative Y
+const RECONCILE_SNAP_THRESH = 2.0;    // units — snap instantly if drift exceeds this
 
 export class App {
   #scene;
@@ -39,6 +41,7 @@ export class App {
   #players;
   #localId = null;
   #joinScreen;
+  #serverY = null;
 
   constructor() {
     this.#scene    = new THREE.Scene();
@@ -89,7 +92,11 @@ export class App {
       .on('world-state',    ({ players }) => this.#players.applyWorldState(players, this.#localId))
       .on('player-joined',  ({ id, color }) => this.#players.add(id, color))
       .on('player-left',    ({ id }) => this.#players.remove(id))
-      .on('players-update', ({ players }) => this.#players.applyUpdates(players))
+      .on('players-update', ({ players }) => {
+        const local = players.find(p => p.id === this.#localId);
+        if (local) this.#serverY = local.y;
+        this.#players.applyUpdates(players);
+      })
       .on('error',          ({ message }) => this.#joinScreen.showError(message));
 
     this.#timer = new Timer();
@@ -114,8 +121,21 @@ export class App {
   #updateCharacter(delta) {
     this.#character.update(delta, this.#input.keys);
     const pos = this.#character.position;
-    const groundY = terrainHeight(pos.x, pos.z);
-    pos.y += (groundY - pos.y) * (1 - Math.pow(GROUND_SMOOTHING, delta));
+
+    // Predict Y locally from terrain for immediate feedback
+    const predictedY = terrainHeight(pos.x, pos.z);
+    pos.y += (predictedY - pos.y) * (1 - Math.pow(GROUND_SMOOTHING, delta));
+
+    // Reconcile with server-authoritative Y when available
+    if (this.#serverY !== null) {
+      const drift = Math.abs(this.#serverY - pos.y);
+      if (drift > RECONCILE_SNAP_THRESH) {
+        pos.y = this.#serverY; // large drift — snap
+      } else {
+        pos.y += (this.#serverY - pos.y) * (1 - Math.pow(RECONCILE_SMOOTHING, delta));
+      }
+    }
+
     this.#chunks.update(pos.x, pos.z);
     this.#network.queueUpdate(pos.x, pos.z, this.#character.rotationY);
   }
