@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Timer } from 'three';
-import { Ground } from './Ground.js';
+import { ChunkManager } from './ChunkManager.js';
+import { terrainHeight } from './terrain-noise.js';
 import { Character } from './Character.js';
 
 export class App {
@@ -11,6 +12,7 @@ export class App {
   #character;
   #keys = {};
   #lookAt = new THREE.Vector3();
+  #chunks;
 
   constructor() {
     this.#scene = new THREE.Scene();
@@ -20,7 +22,14 @@ export class App {
     this.#renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(this.#renderer.domElement);
 
-    this.#scene.add(new Ground().object);
+    this.#chunks = new ChunkManager(this.#scene);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    this.#scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(50, 80, 30);
+    this.#scene.add(dirLight);
 
     this.#character = new Character();
     this.#scene.add(this.#character.object);
@@ -47,8 +56,10 @@ export class App {
     this.#timer.update();
     const delta = this.#timer.getDelta();
     this.#character.update(delta, this.#keys);
-
     const pos = this.#character.position;
+    pos.y = terrainHeight(pos.x, pos.z);
+    this.#chunks.update(pos.x, pos.z);
+
     const angle = this.#character.rotationY;
     const target = new THREE.Vector3(
       pos.x - Math.sin(angle) * 5,
