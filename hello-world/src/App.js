@@ -6,6 +6,7 @@ import { InputHandler } from './InputHandler.js';
 import { terrainHeight } from './terrain-noise.js';
 import { Character } from './Character.js';
 import { NetworkManager } from './NetworkManager.js';
+import { PlayerManager } from './PlayerManager.js';
 
 const SKY_COLOR = 0x87ceeb;
 
@@ -34,6 +35,8 @@ export class App {
   #rafId;
   #running = false;
   #network;
+  #players;
+  #localId = null;
 
   constructor() {
     this.#scene    = new THREE.Scene();
@@ -54,6 +57,7 @@ export class App {
     window.removeEventListener('resize', this.#onResizeBound);
     this.#input.dispose();
     this.#network.dispose();
+    this.#players.dispose();
   }
 
   #setupScene() {
@@ -68,11 +72,20 @@ export class App {
 
     this.#input            = new InputHandler();
     this.#cameraController = new CameraController(this.#camera);
-    this.#network          = new NetworkManager();
+    this.#players = new PlayerManager(this.#scene);
+    this.#network = new NetworkManager();
 
     this.#network
-      .on('welcome', ({ seed }) => console.log(`connected, seed: ${seed}`))
-      .on('error',   ({ message }) => console.warn(`server error: ${message}`));
+      .on('welcome',        ({ id, seed }) => {
+        this.#localId = id;
+        console.log(`connected as ${id}, seed: ${seed}`);
+        this.#network.sendJoin('Player', 0xff8800); // placeholder — task 7 follow-up
+      })
+      .on('world-state',    ({ players }) => this.#players.applyWorldState(players, this.#localId))
+      .on('player-joined',  ({ id, color }) => this.#players.add(id, color))
+      .on('player-left',    ({ id }) => this.#players.remove(id))
+      .on('players-update', ({ players }) => this.#players.applyUpdates(players))
+      .on('error',          ({ message }) => console.warn(`server error: ${message}`));
 
     this.#timer = new Timer();
     this.#timer.connect(document);
@@ -109,6 +122,7 @@ export class App {
     const delta = this.#timer.getDelta();
     this.#updateCharacter(delta);
     this.#cameraController.update(this.#character, delta);
+    this.#players.update(delta);
     this.#renderer.render(this.#scene, this.#camera);
   }
 }
