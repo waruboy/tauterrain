@@ -8,9 +8,9 @@ const GRASS = new THREE.Color(0x4a7c4e);
 const ROCK  = new THREE.Color(0x7a7060);
 const SNOW  = new THREE.Color(0xeeeeee);
 
-const SAND_MAX  = -0.2; // below this → sand
-const ROCK_START =  1.2; // above this → rock/snow transition
-const SNOW_RANGE =  1.0; // height units over which rock blends into snow
+const SAND_MAX   = -0.5; // below this → sand
+const ROCK_START =  2.5; // above this → rock/snow transition
+const SNOW_RANGE =  1.5; // height units over which rock blends into snow
 
 function heightColor(y, target) {
   if (y < SAND_MAX)    return target.copy(SAND);
