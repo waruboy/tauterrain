@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +20,6 @@ const (
 
 	bumpRadius       = 1.5
 	bumpRadiusSq     = bumpRadius * bumpRadius
-	bumpKnockback    = 3.0
 	bumpCooldownTime = 500 * time.Millisecond
 )
 
@@ -147,6 +147,13 @@ func (h *Hub) run() {
 			}
 			h.mu.Unlock()
 
+			// Clean up bump cooldown entries involving this player
+			for key := range h.bumpCooldowns {
+				if len(client.id) > 0 && containsID(key, client.id) {
+					delete(h.bumpCooldowns, key)
+				}
+			}
+
 			if wasJoined {
 				h.broadcast(client.id, "player-left", PlayerLeftPayload{ID: client.id})
 			}
@@ -214,6 +221,10 @@ func bumpPairKey(id1, id2 string) string {
 	return id2 + ":" + id1
 }
 
+func containsID(pairKey, id string) bool {
+	return strings.HasPrefix(pairKey, id+":") || strings.HasSuffix(pairKey, ":"+id)
+}
+
 // checkPlayerCollisions detects collisions between player pairs and broadcasts knockback.
 // Must be called with h.mu held for reading.
 func (h *Hub) checkPlayerCollisions() {
@@ -240,7 +251,7 @@ func (h *Hub) checkPlayerCollisions() {
 			dx := b.x - a.x
 			dz := b.z - a.z
 			distSq := dx*dx + dz*dz
-			if distSq > bumpRadiusSq || distSq == 0 {
+			if distSq > bumpRadiusSq || distSq < 0.001 {
 				continue
 			}
 

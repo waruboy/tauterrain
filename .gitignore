@@ -3,3 +3,5 @@ hello_world/node_modules/
 hello_world/dist/
 .claude/settings.local.json
 .DS_Store
+server/bin/
+server/tauterrain-server
