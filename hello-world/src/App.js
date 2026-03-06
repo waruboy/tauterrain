@@ -13,6 +13,8 @@ import { GoalMarker } from './GoalMarker.js';
 import { WinnerAnnouncement } from './WinnerAnnouncement.js';
 import { FpsCounter } from './FpsCounter.js';
 import { Scoreboard } from './Scoreboard.js';
+import { GoalCompass } from './GoalCompass.js';
+import { ProximityPulse } from './ProximityPulse.js';
 
 export class App {
   #sceneSetup;
@@ -30,6 +32,9 @@ export class App {
   #goalMarker = null;
   #fps;
   #scoreboard;
+  #compass;
+  #pulse;
+  #goalPos = null;
   #rafId;
   #running = false;
 
@@ -79,6 +84,7 @@ export class App {
           this.#sceneSetup.scene.add(this.#goalMarker.object);
         }
         this.#goalMarker.setPosition(x, y, z);
+        this.#goalPos = { x, y, z };
       })
       .on('goal-reached', ({ winnerId, winnerName, scores }) => {
         if (this.#goalMarker) {
@@ -86,12 +92,15 @@ export class App {
           this.#goalMarker.dispose();
           this.#goalMarker = null;
         }
+        this.#goalPos = null;
         WinnerAnnouncement.show(winnerName, winnerId === this.#localId);
         if (scores) this.#scoreboard.update(scores);
       });
 
     this.#fps        = new FpsCounter();
     this.#scoreboard = new Scoreboard();
+    this.#compass    = new GoalCompass();
+    this.#pulse      = new ProximityPulse();
     this.#timer = new Timer();
     this.#timer.connect(document);
   }
@@ -105,6 +114,8 @@ export class App {
     this.#players.dispose();
     this.#fps.dispose();
     this.#scoreboard.dispose();
+    this.#compass.dispose();
+    this.#pulse.dispose();
     if (this.#goalMarker) {
       this.#goalMarker.dispose();
       this.#goalMarker = null;
@@ -120,6 +131,8 @@ export class App {
     this.#cameraController.update(this.#character, delta);
     this.#players.update(delta);
     this.#goalMarker?.update(delta);
+    this.#compass.update(this.#character.position, this.#character.rotationY, this.#goalPos);
+    this.#pulse.update(this.#character.position, this.#goalPos, delta);
     this.#fps.update(delta);
     this.#sceneSetup.renderer.render(this.#sceneSetup.scene, this.#sceneSetup.camera);
   }
