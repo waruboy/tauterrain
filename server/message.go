@@ -85,6 +85,15 @@ type GoalReachedPayload struct {
 	Scores     []ScoreEntry `json:"scores"`
 }
 
+type PlayerBumpPayload struct {
+	ID1 string  `json:"id1"`
+	ID2 string  `json:"id2"`
+	DX1 float64 `json:"dx1"`
+	DZ1 float64 `json:"dz1"`
+	DX2 float64 `json:"dx2"`
+	DZ2 float64 `json:"dz2"`
+}
+
 func encode(msgType string, payload any) ([]byte, error) {
 	p, err := json.Marshal(payload)
 	if err != nil {

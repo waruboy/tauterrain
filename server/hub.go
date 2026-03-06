@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"sort"
@@ -15,6 +16,11 @@ const (
 	goalRadius       = 3.0
 	goalRespawnDelay = 5 * time.Second
 	goalSpawnRange   = 80.0
+
+	bumpRadius       = 1.5
+	bumpRadiusSq     = bumpRadius * bumpRadius
+	bumpKnockback    = 3.0
+	bumpCooldownTime = 500 * time.Millisecond
 )
 
 const terrainSeed = 1
@@ -33,13 +39,16 @@ type Hub struct {
 	goalActive    bool
 	goalX, goalY, goalZ float64
 	goalRespawnAt time.Time
+
+	bumpCooldowns map[string]time.Time
 }
 
 func newHub() *Hub {
 	return &Hub{
-		clients:    make(map[string]*Client),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		clients:       make(map[string]*Client),
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		bumpCooldowns: make(map[string]time.Time),
 	}
 }
 
@@ -195,6 +204,66 @@ func (h *Hub) broadcastTick() {
 	}
 
 	h.checkGoalReached()
+	h.checkPlayerCollisions()
+}
+
+func bumpPairKey(id1, id2 string) string {
+	if id1 < id2 {
+		return id1 + ":" + id2
+	}
+	return id2 + ":" + id1
+}
+
+// checkPlayerCollisions detects collisions between player pairs and broadcasts knockback.
+// Must be called with h.mu held for reading.
+func (h *Hub) checkPlayerCollisions() {
+	type playerPos struct {
+		id   string
+		x, z float64
+	}
+
+	players := make([]playerPos, 0, len(h.clients))
+	for _, c := range h.clients {
+		if !c.joined.Load() {
+			continue
+		}
+		c.mu.Lock()
+		players = append(players, playerPos{id: c.id, x: c.x, z: c.z})
+		c.mu.Unlock()
+	}
+
+	now := time.Now()
+
+	for i := 0; i < len(players); i++ {
+		for j := i + 1; j < len(players); j++ {
+			a, b := players[i], players[j]
+			dx := b.x - a.x
+			dz := b.z - a.z
+			distSq := dx*dx + dz*dz
+			if distSq > bumpRadiusSq || distSq == 0 {
+				continue
+			}
+
+			key := bumpPairKey(a.id, b.id)
+			if last, ok := h.bumpCooldowns[key]; ok && now.Sub(last) < bumpCooldownTime {
+				continue
+			}
+			h.bumpCooldowns[key] = now
+
+			dist := math.Sqrt(distSq)
+			nx := dx / dist
+			nz := dz / dist
+
+			h.broadcastAllLocked("player-bump", PlayerBumpPayload{
+				ID1: a.id,
+				ID2: b.id,
+				DX1: -nx,
+				DZ1: -nz,
+				DX2: nx,
+				DZ2: nz,
+			})
+		}
+	}
 }
 
 func (h *Hub) broadcast(excludeID string, msgType string, payload any) {

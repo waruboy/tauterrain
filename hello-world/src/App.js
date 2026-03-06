@@ -91,6 +91,14 @@ export class App {
         this.#goalMarker.setPosition(x, y, z);
         this.#goalPos = { x, y, z };
       })
+      .on('player-bump', ({ id1, id2, dx1, dz1, dx2, dz2 }) => {
+        const BUMP_STRENGTH = 14.0;
+        if (this.#localId === id1) {
+          this.#characterController.applyKnockback(dx1, dz1, BUMP_STRENGTH);
+        } else if (this.#localId === id2) {
+          this.#characterController.applyKnockback(dx2, dz2, BUMP_STRENGTH);
+        }
+      })
       .on('goal-reached', ({ winnerId, winnerName, scores }) => {
         if (this.#goalMarker) {
           this.#sceneSetup.scene.remove(this.#goalMarker.object);

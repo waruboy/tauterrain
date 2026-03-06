@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 )
@@ -173,5 +174,148 @@ func TestCheckGoalRespawnsAfterDelay(t *testing.T) {
 		}
 	default:
 		t.Error("client did not receive goal-spawn message")
+	}
+}
+
+func TestCheckPlayerCollisionsDetectsBump(t *testing.T) {
+	h := newHub()
+
+	c1 := testClient(h, "p1")
+	c1.mu.Lock()
+	c1.x = 10
+	c1.z = 10
+	c1.mu.Unlock()
+
+	c2 := testClient(h, "p2")
+	c2.mu.Lock()
+	c2.x = 11 // distance = 1.0, within bumpRadius (1.5)
+	c2.z = 10
+	c2.mu.Unlock()
+
+	h.mu.Lock()
+	h.clients[c1.id] = c1
+	h.clients[c2.id] = c2
+	h.mu.Unlock()
+
+	h.mu.RLock()
+	h.checkPlayerCollisions()
+	h.mu.RUnlock()
+
+	// Both clients should receive a player-bump message
+	for _, c := range []*Client{c1, c2} {
+		select {
+		case data := <-c.send:
+			var msg Message
+			json.Unmarshal(data, &msg)
+			if msg.Type != "player-bump" {
+				t.Errorf("client %s: message type = %q, want %q", c.id, msg.Type, "player-bump")
+			}
+			var payload PlayerBumpPayload
+			json.Unmarshal(msg.Payload, &payload)
+			if payload.ID1 != "p1" && payload.ID1 != "p2" {
+				t.Errorf("unexpected id1: %s", payload.ID1)
+			}
+			// Verify knockback directions are normalized and opposite
+			len1 := math.Sqrt(payload.DX1*payload.DX1 + payload.DZ1*payload.DZ1)
+			if math.Abs(len1-1.0) > 0.01 {
+				t.Errorf("knockback direction 1 not normalized: length = %f", len1)
+			}
+			// Directions should be opposite
+			if math.Abs(payload.DX1+payload.DX2) > 0.01 || math.Abs(payload.DZ1+payload.DZ2) > 0.01 {
+				t.Error("knockback directions should be opposite")
+			}
+		default:
+			t.Errorf("client %s did not receive player-bump message", c.id)
+		}
+	}
+}
+
+func TestCheckPlayerCollisionsIgnoresDistantPlayers(t *testing.T) {
+	h := newHub()
+
+	c1 := testClient(h, "p1")
+	c1.mu.Lock()
+	c1.x = 0
+	c1.z = 0
+	c1.mu.Unlock()
+
+	c2 := testClient(h, "p2")
+	c2.mu.Lock()
+	c2.x = 100
+	c2.z = 100
+	c2.mu.Unlock()
+
+	h.mu.Lock()
+	h.clients[c1.id] = c1
+	h.clients[c2.id] = c2
+	h.mu.Unlock()
+
+	h.mu.RLock()
+	h.checkPlayerCollisions()
+	h.mu.RUnlock()
+
+	select {
+	case <-c1.send:
+		t.Error("c1 should not have received a message")
+	default:
+	}
+	select {
+	case <-c2.send:
+		t.Error("c2 should not have received a message")
+	default:
+	}
+}
+
+func TestCheckPlayerCollisionsCooldown(t *testing.T) {
+	h := newHub()
+
+	c1 := testClient(h, "p1")
+	c1.mu.Lock()
+	c1.x = 10
+	c1.z = 10
+	c1.mu.Unlock()
+
+	c2 := testClient(h, "p2")
+	c2.mu.Lock()
+	c2.x = 11
+	c2.z = 10
+	c2.mu.Unlock()
+
+	h.mu.Lock()
+	h.clients[c1.id] = c1
+	h.clients[c2.id] = c2
+	h.mu.Unlock()
+
+	// First collision
+	h.mu.RLock()
+	h.checkPlayerCollisions()
+	h.mu.RUnlock()
+
+	// Drain messages from first bump
+	for range 2 {
+		select {
+		case <-c1.send:
+		default:
+		}
+		select {
+		case <-c2.send:
+		default:
+		}
+	}
+
+	// Second collision immediately — should be suppressed by cooldown
+	h.mu.RLock()
+	h.checkPlayerCollisions()
+	h.mu.RUnlock()
+
+	select {
+	case <-c1.send:
+		t.Error("c1 should not receive a second bump within cooldown")
+	default:
+	}
+	select {
+	case <-c2.send:
+		t.Error("c2 should not receive a second bump within cooldown")
+	default:
 	}
 }
