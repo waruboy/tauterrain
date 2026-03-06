@@ -11,6 +11,7 @@ import { JoinScreen } from './JoinScreen.js';
 import { CharacterController } from './CharacterController.js';
 import { GoalMarker } from './GoalMarker.js';
 import { WinnerAnnouncement } from './WinnerAnnouncement.js';
+import { FpsCounter } from './FpsCounter.js';
 
 export class App {
   #sceneSetup;
@@ -26,6 +27,7 @@ export class App {
   #joinScreen;
   #serverY = null;
   #goalMarker = null;
+  #fps;
   #rafId;
   #running = false;
 
@@ -82,6 +84,7 @@ export class App {
         WinnerAnnouncement.show(winnerName, winnerId === this.#localId);
       });
 
+    this.#fps   = new FpsCounter();
     this.#timer = new Timer();
     this.#timer.connect(document);
   }
@@ -93,6 +96,7 @@ export class App {
     this.#input.dispose();
     this.#network.dispose();
     this.#players.dispose();
+    this.#fps.dispose();
     if (this.#goalMarker) {
       this.#goalMarker.dispose();
       this.#goalMarker = null;
@@ -108,6 +112,7 @@ export class App {
     this.#cameraController.update(this.#character, delta);
     this.#players.update(delta);
     this.#goalMarker?.update(delta);
+    this.#fps.update(delta);
     this.#sceneSetup.renderer.render(this.#sceneSetup.scene, this.#sceneSetup.camera);
   }
 }
