@@ -98,6 +98,11 @@ func TestCheckGoalReachedDetectsProximity(t *testing.T) {
 		if payload.WinnerName != "Alice" {
 			t.Errorf("winnerName = %q, want %q", payload.WinnerName, "Alice")
 		}
+		if len(payload.Scores) == 0 {
+			t.Error("scores should not be empty after goal reached")
+		} else if payload.Scores[0].Score != 1 {
+			t.Errorf("winner score = %d, want 1", payload.Scores[0].Score)
+		}
 	default:
 		t.Error("client did not receive goal-reached message")
 	}

@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -79,6 +80,9 @@ func (h *Hub) checkGoalReached() {
 		c.mu.Unlock()
 
 		if distSq <= radiusSq {
+			c.mu.Lock()
+			c.score++
+			c.mu.Unlock()
 			h.goalActive = false
 			h.goalRespawnAt = time.Now().Add(goalRespawnDelay)
 			log.Printf("goal reached by %s (%s)", id, name)
@@ -87,6 +91,7 @@ func (h *Hub) checkGoalReached() {
 				WinnerName: name,
 				GoalX:      h.goalX,
 				GoalZ:      h.goalZ,
+				Scores:     h.scoresLocked(),
 			})
 			return
 		}
@@ -256,6 +261,27 @@ func (h *Hub) worldState() []PlayerInfo {
 		c.mu.Unlock()
 	}
 	return players
+}
+
+func (h *Hub) scores() []ScoreEntry {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.scoresLocked()
+}
+
+// scoresLocked requires h.mu to be held (read or write).
+func (h *Hub) scoresLocked() []ScoreEntry {
+	entries := make([]ScoreEntry, 0, len(h.clients))
+	for _, c := range h.clients {
+		if !c.joined.Load() {
+			continue
+		}
+		c.mu.Lock()
+		entries = append(entries, ScoreEntry{ID: c.id, Name: c.name, Score: c.score})
+		c.mu.Unlock()
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Score > entries[j].Score })
+	return entries
 }
 
 func (h *Hub) handleWS(w http.ResponseWriter, r *http.Request) {

@@ -31,6 +31,7 @@ type Client struct {
 	color        int
 	x, y, z, ry float64
 	dirty        bool
+	score        int
 }
 
 func newClient(hub *Hub, conn *websocket.Conn) *Client {
@@ -138,7 +139,10 @@ func (c *Client) handleJoin(raw json.RawMessage) {
 
 	// Send welcome + world state to this client
 	c.hub.send(c.id, "welcome", WelcomePayload{ID: c.id, Seed: terrainSeed})
-	c.hub.send(c.id, "world-state", WorldStatePayload{Players: c.hub.worldState()})
+	c.hub.send(c.id, "world-state", WorldStatePayload{
+		Players: c.hub.worldState(),
+		Scores:  c.hub.scores(),
+	})
 
 	// Send current goal if active
 	c.hub.goalMu.Lock()

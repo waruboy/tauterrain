@@ -33,8 +33,15 @@ type PlayerInfo struct {
 	RY    float64 `json:"ry"`
 }
 
+type ScoreEntry struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
 type WorldStatePayload struct {
 	Players []PlayerInfo `json:"players"`
+	Scores  []ScoreEntry `json:"scores"`
 }
 
 type PlayerJoinedPayload struct {
@@ -71,10 +78,11 @@ type GoalSpawnPayload struct {
 }
 
 type GoalReachedPayload struct {
-	WinnerID   string  `json:"winnerId"`
-	WinnerName string  `json:"winnerName"`
-	GoalX      float64 `json:"goalX"`
-	GoalZ      float64 `json:"goalZ"`
+	WinnerID   string       `json:"winnerId"`
+	WinnerName string       `json:"winnerName"`
+	GoalX      float64      `json:"goalX"`
+	GoalZ      float64      `json:"goalZ"`
+	Scores     []ScoreEntry `json:"scores"`
 }
 
 func encode(msgType string, payload any) ([]byte, error) {

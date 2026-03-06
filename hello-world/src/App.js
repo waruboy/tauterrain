@@ -12,6 +12,7 @@ import { CharacterController } from './CharacterController.js';
 import { GoalMarker } from './GoalMarker.js';
 import { WinnerAnnouncement } from './WinnerAnnouncement.js';
 import { FpsCounter } from './FpsCounter.js';
+import { Scoreboard } from './Scoreboard.js';
 
 export class App {
   #sceneSetup;
@@ -28,6 +29,7 @@ export class App {
   #serverY = null;
   #goalMarker = null;
   #fps;
+  #scoreboard;
   #rafId;
   #running = false;
 
@@ -59,7 +61,10 @@ export class App {
         this.#joinScreen.dismiss();
         console.log(`connected as ${id}, seed: ${seed}`);
       })
-      .on('world-state',    ({ players }) => this.#players.applyWorldState(players, this.#localId))
+      .on('world-state',    ({ players, scores }) => {
+        this.#players.applyWorldState(players, this.#localId);
+        if (scores) this.#scoreboard.update(scores);
+      })
       .on('player-joined',  ({ id, color }) => this.#players.add(id, color))
       .on('player-left',    ({ id }) => this.#players.remove(id))
       .on('players-update', ({ players }) => {
@@ -75,16 +80,18 @@ export class App {
         }
         this.#goalMarker.setPosition(x, y, z);
       })
-      .on('goal-reached', ({ winnerId, winnerName }) => {
+      .on('goal-reached', ({ winnerId, winnerName, scores }) => {
         if (this.#goalMarker) {
           this.#sceneSetup.scene.remove(this.#goalMarker.object);
           this.#goalMarker.dispose();
           this.#goalMarker = null;
         }
         WinnerAnnouncement.show(winnerName, winnerId === this.#localId);
+        if (scores) this.#scoreboard.update(scores);
       });
 
-    this.#fps   = new FpsCounter();
+    this.#fps        = new FpsCounter();
+    this.#scoreboard = new Scoreboard();
     this.#timer = new Timer();
     this.#timer.connect(document);
   }
@@ -97,6 +104,7 @@ export class App {
     this.#network.dispose();
     this.#players.dispose();
     this.#fps.dispose();
+    this.#scoreboard.dispose();
     if (this.#goalMarker) {
       this.#goalMarker.dispose();
       this.#goalMarker = null;
