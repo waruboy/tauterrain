@@ -9,9 +9,9 @@ export class PlayerManager {
   }
 
   // Called when a new player joins
-  add(id, color) {
+  add(id, color, name) {
     if (this.#players.has(id)) return;
-    const player = new RemotePlayer(color);
+    const player = new RemotePlayer(color, name);
     this.#players.set(id, player);
     this.#scene.add(player.object);
   }
@@ -34,9 +34,9 @@ export class PlayerManager {
 
   // Called with world-state payload on join
   applyWorldState(players, localId) {
-    for (const { id, color, x, y, z, ry } of players) {
+    for (const { id, color, name, x, y, z, ry } of players) {
       if (id === localId) continue;
-      this.add(id, color);
+      this.add(id, color, name);
       this.#players.get(id)?.setTarget(x, y, z, ry);
     }
   }

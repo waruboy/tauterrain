@@ -75,7 +75,7 @@ export class App {
         this.#players.applyWorldState(players, this.#localId);
         if (scores) this.#scoreboard.update(scores);
       })
-      .on('player-joined',  ({ id, color }) => this.#players.add(id, color))
+      .on('player-joined',  ({ id, color, name }) => this.#players.add(id, color, name))
       .on('player-left',    ({ id }) => this.#players.remove(id))
       .on('players-update', ({ players }) => {
         const local = players.find(p => p.id === this.#localId);

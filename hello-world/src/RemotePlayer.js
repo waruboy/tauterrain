@@ -7,8 +7,11 @@ export class RemotePlayer {
   #targetPos = new THREE.Vector3();
   #targetRY  = 0;
 
-  constructor(color) {
+  #labelSprite = null;
+
+  constructor(color, name) {
     this.#group = this.#build(color);
+    if (name) this.#createLabel(name);
   }
 
   get object() { return this.#group; }
@@ -36,6 +39,47 @@ export class RemotePlayer {
         obj.material.dispose();
       }
     });
+    if (this.#labelSprite) {
+      this.#labelSprite.material.map.dispose();
+      this.#labelSprite.material.dispose();
+    }
+  }
+
+  #createLabel(name) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const fontSize = 48;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    const textWidth = ctx.measureText(name).width;
+    const padding = 20;
+    canvas.width = textWidth + padding * 2;
+    canvas.height = fontSize + padding;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    const r = 12;
+    const w = canvas.width, h = canvas.height;
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(w - r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+    ctx.lineTo(w, h - r); ctx.quadraticCurveTo(w, h, w - r, h);
+    ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
+    ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.fill();
+
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+    const sprite = new THREE.Sprite(material);
+    const aspect = canvas.width / canvas.height;
+    const height = 0.4;
+    sprite.scale.set(height * aspect, height, 1);
+    sprite.position.y = 3.0;
+    this.#labelSprite = sprite;
+    this.#group.add(sprite);
   }
 
   #build(color) {
