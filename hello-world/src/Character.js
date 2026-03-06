@@ -3,8 +3,9 @@ import * as THREE from 'three';
 export class Character {
   #group;
 
-  #moveSpeed = 4;
+  #moveSpeed = 6;
   #turnSpeed = 2;
+  #speedMultiplier = 1;
 
   constructor() {
     this.#group = this.#build();
@@ -13,6 +14,7 @@ export class Character {
   get object()    { return this.#group; }
   get position()  { return this.#group.position; }
   get rotationY() { return this.#group.rotation.y; }
+  set speedMultiplier(v) { this.#speedMultiplier = v; }
 
   update(delta, keys) {
     if (keys['a'])  this.#group.rotation.y += this.#turnSpeed * delta;
@@ -20,12 +22,12 @@ export class Character {
 
     const dir = this.#group.rotation.y;
     if (keys['w']) {
-      this.#group.position.x += Math.sin(dir) * this.#moveSpeed * delta;
-      this.#group.position.z += Math.cos(dir) * this.#moveSpeed * delta;
+      this.#group.position.x += Math.sin(dir) * this.#moveSpeed * this.#speedMultiplier * delta;
+      this.#group.position.z += Math.cos(dir) * this.#moveSpeed * this.#speedMultiplier * delta;
     }
     if (keys['s']) {
-      this.#group.position.x -= Math.sin(dir) * this.#moveSpeed * delta;
-      this.#group.position.z -= Math.cos(dir) * this.#moveSpeed * delta;
+      this.#group.position.x -= Math.sin(dir) * this.#moveSpeed * this.#speedMultiplier * delta;
+      this.#group.position.z -= Math.cos(dir) * this.#moveSpeed * this.#speedMultiplier * delta;
     }
   }
 

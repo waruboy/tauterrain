@@ -1,6 +1,6 @@
 import { createNoise2D } from 'simplex-noise';
 
-function mulberry32(seed) {
+export function mulberry32(seed) {
   return () => {
     seed |= 0; seed = seed + 0x6D2B79F5 | 0;
     let t = Math.imul(seed ^ seed >>> 15, 1 | seed);

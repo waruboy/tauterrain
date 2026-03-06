@@ -4,6 +4,12 @@ const GROUND_SMOOTHING      = 0.001;
 const RECONCILE_SMOOTHING   = 0.0001;
 const RECONCILE_SNAP_THRESH = 2.0;
 
+export function terrainSpeedMultiplier(height) {
+  if (height < -0.5) return 0.5;
+  if (height > 2.5) return 0.6;
+  return 1.0;
+}
+
 export class CharacterController {
   #character;
   #input;
