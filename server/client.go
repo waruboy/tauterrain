@@ -140,6 +140,15 @@ func (c *Client) handleJoin(raw json.RawMessage) {
 	c.hub.send(c.id, "welcome", WelcomePayload{ID: c.id, Seed: terrainSeed})
 	c.hub.send(c.id, "world-state", WorldStatePayload{Players: c.hub.worldState()})
 
+	// Send current goal if active
+	c.hub.goalMu.Lock()
+	if c.hub.goalActive {
+		c.hub.send(c.id, "goal-spawn", GoalSpawnPayload{
+			X: c.hub.goalX, Y: c.hub.goalY, Z: c.hub.goalZ,
+		})
+	}
+	c.hub.goalMu.Unlock()
+
 	// Notify all other clients
 	c.hub.broadcast(c.id, "player-joined", PlayerJoinedPayload{
 		ID:    c.id,

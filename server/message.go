@@ -64,6 +64,19 @@ type ErrorPayload struct {
 	Message string `json:"message"`
 }
 
+type GoalSpawnPayload struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
+type GoalReachedPayload struct {
+	WinnerID   string  `json:"winnerId"`
+	WinnerName string  `json:"winnerName"`
+	GoalX      float64 `json:"goalX"`
+	GoalZ      float64 `json:"goalZ"`
+}
+
 func encode(msgType string, payload any) ([]byte, error) {
 	p, err := json.Marshal(payload)
 	if err != nil {

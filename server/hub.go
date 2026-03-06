@@ -2,11 +2,18 @@ package main
 
 import (
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	goalRadius       = 3.0
+	goalRespawnDelay = 5 * time.Second
+	goalSpawnRange   = 80.0
 )
 
 const terrainSeed = 1
@@ -20,6 +27,11 @@ type Hub struct {
 	clients    map[string]*Client // keyed by ID
 	register   chan *Client
 	unregister chan *Client
+
+	goalMu        sync.Mutex
+	goalActive    bool
+	goalX, goalY, goalZ float64
+	goalRespawnAt time.Time
 }
 
 func newHub() *Hub {
@@ -30,7 +42,76 @@ func newHub() *Hub {
 	}
 }
 
+func (h *Hub) spawnGoal() {
+	h.goalX = (rand.Float64()*2 - 1) * goalSpawnRange
+	h.goalZ = (rand.Float64()*2 - 1) * goalSpawnRange
+	h.goalY = terrainHeight(h.goalX, h.goalZ)
+	h.goalActive = true
+	h.goalRespawnAt = time.Time{}
+	log.Printf("goal spawned at (%.1f, %.1f, %.1f)", h.goalX, h.goalY, h.goalZ)
+}
+
+func (h *Hub) checkGoalReached() {
+	h.goalMu.Lock()
+	defer h.goalMu.Unlock()
+
+	if !h.goalActive {
+		if !h.goalRespawnAt.IsZero() && time.Now().After(h.goalRespawnAt) {
+			h.spawnGoal()
+			h.broadcastAllLocked("goal-spawn", GoalSpawnPayload{
+				X: h.goalX, Y: h.goalY, Z: h.goalZ,
+			})
+		}
+		return
+	}
+
+	radiusSq := goalRadius * goalRadius
+	for _, c := range h.clients {
+		if !c.joined.Load() {
+			continue
+		}
+		c.mu.Lock()
+		dx := c.x - h.goalX
+		dz := c.z - h.goalZ
+		distSq := dx*dx + dz*dz
+		name := c.name
+		id := c.id
+		c.mu.Unlock()
+
+		if distSq <= radiusSq {
+			h.goalActive = false
+			h.goalRespawnAt = time.Now().Add(goalRespawnDelay)
+			log.Printf("goal reached by %s (%s)", id, name)
+			h.broadcastAllLocked("goal-reached", GoalReachedPayload{
+				WinnerID:   id,
+				WinnerName: name,
+				GoalX:      h.goalX,
+				GoalZ:      h.goalZ,
+			})
+			return
+		}
+	}
+}
+
+func (h *Hub) broadcastAllLocked(msgType string, payload any) {
+	data, err := encode(msgType, payload)
+	if err != nil {
+		log.Printf("encode error: %v", err)
+		return
+	}
+	for _, c := range h.clients {
+		select {
+		case c.send <- data:
+		default:
+		}
+	}
+}
+
 func (h *Hub) run() {
+	h.goalMu.Lock()
+	h.spawnGoal()
+	h.goalMu.Unlock()
+
 	ticker := time.NewTicker(50 * time.Millisecond) // 20Hz
 	defer ticker.Stop()
 
@@ -107,6 +188,8 @@ func (h *Hub) broadcastTick() {
 			log.Printf("send buffer full for %s, dropping message", c.id)
 		}
 	}
+
+	h.checkGoalReached()
 }
 
 func (h *Hub) broadcast(excludeID string, msgType string, payload any) {
