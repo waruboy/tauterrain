@@ -19,9 +19,13 @@ func main() {
 	hub := newHub()
 	go hub.run()
 
+	// Build client: cd hello-world && npm run build
+	staticDir := http.Dir("../hello-world/dist")
+	fileServer := http.FileServer(staticDir)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", healthCheck)
 	mux.HandleFunc("/ws", hub.handleWS)
+	mux.Handle("/", fileServer)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -50,7 +54,3 @@ func main() {
 	log.Println("stopped")
 }
 
-func healthCheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
