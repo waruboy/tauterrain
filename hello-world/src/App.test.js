@@ -5,18 +5,21 @@ const mockSetSize = vi.fn();
 const mockRender = vi.fn();
 const mockUpdateProjectionMatrix = vi.fn();
 const mockLookAt = vi.fn();
-const mockPositionSet = vi.fn();
+const mockDispose = vi.fn();
 
 let mockCanvas;
 let lastCamera;
 
 vi.mock('three', () => {
   mockCanvas = document.createElement('canvas');
+  const vec3 = () => ({ x: 0, y: 0, z: 0, set: vi.fn(), copy: vi.fn(), lerp: vi.fn() });
   return {
-    Scene: vi.fn(function() { return { add: mockSceneAdd }; }),
+    Scene: vi.fn(function() {
+      return { add: mockSceneAdd, remove: vi.fn(), background: null, fog: null };
+    }),
     PerspectiveCamera: vi.fn(function() {
       lastCamera = {
-        position: { set: mockPositionSet },
+        position: { ...vec3(), lerp: vi.fn() },
         aspect: 1,
         updateProjectionMatrix: mockUpdateProjectionMatrix,
         lookAt: mockLookAt,
@@ -24,21 +27,100 @@ vi.mock('three', () => {
       return lastCamera;
     }),
     WebGLRenderer: vi.fn(function() {
-      return { setSize: mockSetSize, domElement: mockCanvas, render: mockRender };
+      return { setSize: mockSetSize, domElement: mockCanvas, render: mockRender, dispose: mockDispose };
     }),
     Timer: vi.fn(function() {
       return { connect: vi.fn(), update: vi.fn(), getDelta: vi.fn(() => 0.016) };
     }),
+    Vector3: vi.fn(function() { return vec3(); }),
+    Color: vi.fn(function() { return {}; }),
+    FogExp2: vi.fn(function() { return {}; }),
+    AmbientLight: vi.fn(function() { return {}; }),
+    DirectionalLight: vi.fn(function() {
+      return { position: { copy: vi.fn() } };
+    }),
+    Group: vi.fn(function() {
+      return { add: vi.fn(), position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } };
+    }),
+    BoxGeometry: vi.fn(function() { return { dispose: vi.fn() }; }),
+    MeshBasicMaterial: vi.fn(function() { return {}; }),
+    MeshStandardMaterial: vi.fn(function() { return {}; }),
+    Mesh: vi.fn(function() {
+      return { position: { y: 0, set: vi.fn() }, rotation: { x: 0, z: 0 }, geometry: { dispose: vi.fn() } };
+    }),
+    PlaneGeometry: vi.fn(function() { return { dispose: vi.fn() }; }),
   };
 });
 
-vi.mock('./Ground.js', () => ({
-  Ground: vi.fn(function() { return { object: {} }; }),
+vi.mock('./ChunkManager.js', () => ({
+  ChunkManager: vi.fn(function() {
+    return { update: vi.fn(), reset: vi.fn() };
+  }),
+}));
+
+vi.mock('./CameraController.js', () => ({
+  CameraController: vi.fn(function() { return { update: vi.fn() }; }),
+}));
+
+vi.mock('./InputHandler.js', () => ({
+  InputHandler: vi.fn(function() { return { keys: {}, dispose: vi.fn() }; }),
 }));
 
 vi.mock('./Character.js', () => ({
   Character: vi.fn(function() {
-    return { object: {}, update: vi.fn(), position: { x: 0, z: 0 }, rotationY: 0 };
+    return {
+      object: {},
+      update: vi.fn(),
+      position: { x: 0, y: 0, z: 0 },
+      rotationY: 0,
+      speedMultiplier: 1,
+    };
+  }),
+}));
+
+vi.mock('./CharacterController.js', () => ({
+  CharacterController: vi.fn(function() {
+    return { update: vi.fn(), applyKnockback: vi.fn() };
+  }),
+  terrainSpeedMultiplier: vi.fn(() => 1.0),
+}));
+
+vi.mock('./NetworkManager.js', () => ({
+  NetworkManager: vi.fn(function() {
+    return { on: vi.fn(function() { return this; }), sendJoin: vi.fn(), queueUpdate: vi.fn(), dispose: vi.fn() };
+  }),
+}));
+
+vi.mock('./PlayerManager.js', () => ({
+  PlayerManager: vi.fn(function() {
+    return { update: vi.fn(), applyWorldState: vi.fn(), applyUpdates: vi.fn(), add: vi.fn(), remove: vi.fn(), dispose: vi.fn() };
+  }),
+}));
+
+vi.mock('./JoinScreen.js', () => ({
+  JoinScreen: vi.fn(function() { return { dismiss: vi.fn(), showError: vi.fn() }; }),
+}));
+
+vi.mock('./terrain-noise.js', () => ({
+  initTerrain: vi.fn(),
+  terrainHeight: vi.fn(() => 0),
+}));
+
+vi.mock('./SpeedBoostManager.js', () => ({
+  SpeedBoostManager: vi.fn(function() {
+    return { update: vi.fn(() => false), reset: vi.fn(), dispose: vi.fn() };
+  }),
+}));
+
+vi.mock('./GoalManager.js', () => ({
+  GoalManager: vi.fn(function() {
+    return { position: null, spawn: vi.fn(), reached: vi.fn(), update: vi.fn(), dispose: vi.fn() };
+  }),
+}));
+
+vi.mock('./HudManager.js', () => ({
+  HudManager: vi.fn(function() {
+    return { updateSpeed: vi.fn(), updateCompass: vi.fn(), updateFps: vi.fn(), updateScores: vi.fn(), dispose: vi.fn() };
   }),
 }));
 
@@ -53,21 +135,6 @@ describe('App', () => {
   it('appends the renderer canvas to document.body', () => {
     new App();
     expect(document.body.contains(mockCanvas)).toBe(true);
-  });
-
-  it('positions camera above and in front of the ground', () => {
-    new App();
-    expect(mockPositionSet).toHaveBeenCalledWith(0, 8, 5);
-  });
-
-  it('points camera at the origin', () => {
-    new App();
-    expect(mockLookAt).toHaveBeenCalledWith(0, 0, 0);
-  });
-
-  it('adds ground and character to the scene', () => {
-    new App();
-    expect(mockSceneAdd).toHaveBeenCalledTimes(2);
   });
 
   it('renders each frame in animate()', () => {
@@ -85,5 +152,12 @@ describe('App', () => {
     expect(lastCamera.aspect).toBe(1280 / 720);
     expect(mockUpdateProjectionMatrix).toHaveBeenCalled();
     expect(mockSetSize).toHaveBeenLastCalledWith(1280, 720);
+  });
+
+  it('cleans up on dispose()', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => {});
+    const app = new App();
+    app.dispose();
+    expect(mockDispose).toHaveBeenCalled();
   });
 });

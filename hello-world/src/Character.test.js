@@ -31,31 +31,31 @@ describe('Character', () => {
     expect(mockGroupAdd).toHaveBeenCalledTimes(6);
   });
 
-  it('moves forward on ArrowUp scaled by delta', () => {
+  it('moves forward on w scaled by delta', () => {
     const character = new Character();
     const before = character.position.z;
-    character.update(0.016, { ArrowUp: true });
+    character.update(0.016, { w: true });
     expect(character.position.z).toBeGreaterThan(before);
   });
 
-  it('moves backward on ArrowDown scaled by delta', () => {
+  it('moves backward on s scaled by delta', () => {
     const character = new Character();
     const before = character.position.z;
-    character.update(0.016, { ArrowDown: true });
+    character.update(0.016, { s: true });
     expect(character.position.z).toBeLessThan(before);
   });
 
-  it('turns left on ArrowLeft scaled by delta', () => {
+  it('turns left on a scaled by delta', () => {
     const character = new Character();
     const before = character.rotationY;
-    character.update(0.016, { ArrowLeft: true });
+    character.update(0.016, { a: true });
     expect(character.rotationY).toBeGreaterThan(before);
   });
 
-  it('turns right on ArrowRight scaled by delta', () => {
+  it('turns right on d scaled by delta', () => {
     const character = new Character();
     const before = character.rotationY;
-    character.update(0.016, { ArrowRight: true });
+    character.update(0.016, { d: true });
     expect(character.rotationY).toBeLessThan(before);
   });
 

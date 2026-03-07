@@ -9,13 +9,9 @@ import { NetworkManager } from './NetworkManager.js';
 import { PlayerManager } from './PlayerManager.js';
 import { JoinScreen } from './JoinScreen.js';
 import { CharacterController, terrainSpeedMultiplier } from './CharacterController.js';
-import { GoalMarker } from './GoalMarker.js';
-import { WinnerAnnouncement } from './WinnerAnnouncement.js';
-import { FpsCounter } from './FpsCounter.js';
-import { Scoreboard } from './Scoreboard.js';
-import { GoalCompass } from './GoalCompass.js';
 import { SpeedBoostManager } from './SpeedBoostManager.js';
-import { SpeedIndicator } from './SpeedIndicator.js';
+import { GoalManager } from './GoalManager.js';
+import { HudManager } from './HudManager.js';
 
 
 export class App {
@@ -31,19 +27,15 @@ export class App {
   #localId = null;
   #joinScreen;
   #serverY = null;
-  #goalMarker = null;
-  #fps;
-  #scoreboard;
-  #compass;
+  #hud;
+  #goals;
   #boosts = null;
-  #speedIndicator;
-  #goalPos = null;
   #rafId;
   #running = false;
 
   constructor() {
     this.#sceneSetup = new SceneSetup();
-    const { scene, camera, renderer } = this.#sceneSetup;
+    const { scene, camera } = this.#sceneSetup;
 
     this.#chunks    = new ChunkManager(scene);
     this.#character = new Character();
@@ -61,6 +53,16 @@ export class App {
       this.#network.sendJoin(name, color);
     });
 
+    this.#goals = new GoalManager(scene);
+    this.#hud   = new HudManager();
+
+    this.#bindNetworkEvents();
+
+    this.#timer = new Timer();
+    this.#timer.connect(document);
+  }
+
+  #bindNetworkEvents() {
     this.#network
       .on('welcome', ({ id, seed }) => {
         this.#localId = id;
@@ -71,9 +73,9 @@ export class App {
         this.#joinScreen.dismiss();
         console.log(`connected as ${id}, seed: ${seed}`);
       })
-      .on('world-state',    ({ players, scores }) => {
+      .on('world-state', ({ players, scores }) => {
         this.#players.applyWorldState(players, this.#localId);
-        if (scores) this.#scoreboard.update(scores);
+        this.#hud.updateScores(scores);
       })
       .on('player-joined',  ({ id, color, name }) => this.#players.add(id, color, name))
       .on('player-left',    ({ id }) => this.#players.remove(id))
@@ -83,14 +85,7 @@ export class App {
         this.#players.applyUpdates(players);
       })
       .on('error', ({ message }) => this.#joinScreen.showError(message))
-      .on('goal-spawn', ({ x, y, z }) => {
-        if (!this.#goalMarker) {
-          this.#goalMarker = new GoalMarker();
-          this.#sceneSetup.scene.add(this.#goalMarker.object);
-        }
-        this.#goalMarker.setPosition(x, y, z);
-        this.#goalPos = { x, y, z };
-      })
+      .on('goal-spawn', ({ x, y, z }) => this.#goals.spawn(x, y, z))
       .on('player-bump', ({ id1, id2, dx1, dz1, dx2, dz2 }) => {
         const BUMP_STRENGTH = 14.0;
         if (this.#localId === id1) {
@@ -100,22 +95,9 @@ export class App {
         }
       })
       .on('goal-reached', ({ winnerId, winnerName, scores }) => {
-        if (this.#goalMarker) {
-          this.#sceneSetup.scene.remove(this.#goalMarker.object);
-          this.#goalMarker.dispose();
-          this.#goalMarker = null;
-        }
-        this.#goalPos = null;
-        WinnerAnnouncement.show(winnerName, winnerId === this.#localId);
-        if (scores) this.#scoreboard.update(scores);
+        this.#goals.reached(winnerName, winnerId === this.#localId, scores);
+        this.#hud.updateScores(scores);
       });
-
-    this.#fps        = new FpsCounter();
-    this.#scoreboard = new Scoreboard();
-    this.#compass        = new GoalCompass();
-    this.#speedIndicator = new SpeedIndicator();
-    this.#timer = new Timer();
-    this.#timer.connect(document);
   }
 
   dispose() {
@@ -125,15 +107,9 @@ export class App {
     this.#input.dispose();
     this.#network.dispose();
     this.#players.dispose();
-    this.#fps.dispose();
-    this.#scoreboard.dispose();
-    this.#compass.dispose();
-    this.#speedIndicator.dispose();
+    this.#hud.dispose();
+    this.#goals.dispose();
     if (this.#boosts) this.#boosts.dispose();
-    if (this.#goalMarker) {
-      this.#goalMarker.dispose();
-      this.#goalMarker = null;
-    }
   }
 
   animate() {
@@ -146,13 +122,13 @@ export class App {
     const tMult = terrainSpeedMultiplier(height);
     const boostActive = this.#boosts ? this.#boosts.update(pos, delta) : false;
     this.#character.speedMultiplier = tMult * (boostActive ? 1.8 : 1.0);
-    this.#speedIndicator.update(tMult, boostActive);
+    this.#hud.updateSpeed(tMult, boostActive);
     this.#characterController.update(delta, this.#serverY);
     this.#cameraController.update(this.#character, delta);
     this.#players.update(delta);
-    this.#goalMarker?.update(delta);
-    this.#compass.update(pos, this.#character.rotationY, this.#goalPos);
-    this.#fps.update(delta);
+    this.#goals.update(delta);
+    this.#hud.updateCompass(pos, this.#character.rotationY, this.#goals.position);
+    this.#hud.updateFps(delta);
     this.#sceneSetup.renderer.render(this.#sceneSetup.scene, this.#sceneSetup.camera);
   }
 }
