@@ -1,7 +1,7 @@
 const SERVER_URL      = import.meta.env.DEV
   ? 'ws://localhost:3000/ws'
   : `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
-const SEND_RATE_HZ    = 20;
+const SEND_RATE_HZ    = 5;
 const RECONNECT_DELAY = 1000;  // ms, doubles on each failure
 const MAX_RECONNECT_DELAY = 30000;
 

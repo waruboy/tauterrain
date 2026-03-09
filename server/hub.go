@@ -126,7 +126,7 @@ func (h *Hub) run() {
 	h.spawnGoal()
 	h.goalMu.Unlock()
 
-	ticker := time.NewTicker(50 * time.Millisecond) // 20Hz
+	ticker := time.NewTicker(200 * time.Millisecond) // 5Hz
 	defer ticker.Stop()
 
 	for {
