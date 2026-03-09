@@ -32,6 +32,7 @@ export class App {
   #boosts = null;
   #rafId;
   #running = false;
+  #pendingColor = null;
 
   constructor() {
     this.#sceneSetup = new SceneSetup();
@@ -50,6 +51,7 @@ export class App {
     );
 
     this.#joinScreen = new JoinScreen((name, color) => {
+      this.#pendingColor = color;
       this.#network.sendJoin(name, color);
     });
 
@@ -70,6 +72,9 @@ export class App {
         this.#chunks.reset();
         if (this.#boosts) this.#boosts.reset(seed);
         else this.#boosts = new SpeedBoostManager(this.#sceneSetup.scene, seed);
+        if (this.#pendingColor !== null) {
+          this.#character.setColor(this.#pendingColor);
+        }
         this.#joinScreen.dismiss();
         console.log(`connected as ${id}, seed: ${seed}`);
       })
@@ -121,10 +126,12 @@ export class App {
     const height = terrainHeight(pos.x, pos.z);
     const tMult = terrainSpeedMultiplier(height);
     const boostActive = this.#boosts ? this.#boosts.update(pos, delta) : false;
-    this.#character.speedMultiplier = tMult * (boostActive ? 1.8 : 1.0);
+    this.#character.speedMultiplier = tMult * (boostActive ? 2.0 : 1.0);
     this.#hud.updateSpeed(tMult, boostActive);
-    this.#characterController.update(delta, this.#serverY);
-    this.#cameraController.update(this.#character, delta);
+    if (this.#localId) {
+      this.#characterController.update(delta, this.#serverY);
+    }
+    this.#cameraController.update(this.#character, delta, boostActive);
     this.#players.update(delta);
     this.#goals.update(delta);
     this.#hud.updateCompass(pos, this.#character.rotationY, this.#goals.position);

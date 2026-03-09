@@ -4,6 +4,9 @@ const CAM_FOLLOW_DIST = 10;
 const CAM_HEIGHT      = 14;
 const CAM_LOOKAHEAD   = 3;
 const CAM_SMOOTHING   = 0.01;
+const BASE_FOV        = 75;
+const BOOST_FOV       = 90;
+const FOV_SMOOTHING   = 0.005;
 
 export class CameraController {
   #camera;
@@ -15,7 +18,7 @@ export class CameraController {
     this.#camera = camera;
   }
 
-  update(character, delta) {
+  update(character, delta, boostActive = false) {
     const pos    = character.position;
     const angle  = character.rotationY;
     const smooth = 1 - Math.pow(CAM_SMOOTHING, delta);
@@ -34,5 +37,10 @@ export class CameraController {
     );
     this.#lookAt.lerp(this.#lookAtTarget, smooth);
     this.#camera.lookAt(this.#lookAt);
+
+    const targetFov = boostActive ? BOOST_FOV : BASE_FOV;
+    const fovSmooth = 1 - Math.pow(FOV_SMOOTHING, delta);
+    this.#camera.fov += (targetFov - this.#camera.fov) * fovSmooth;
+    this.#camera.updateProjectionMatrix();
   }
 }

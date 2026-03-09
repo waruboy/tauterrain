@@ -83,6 +83,23 @@ const STYLES = `
   }
   #join-btn:hover { background: #5577ee; }
   #join-btn:disabled { background: #444; cursor: default; }
+  #join-instructions {
+    font-size: 0.78rem;
+    color: #888;
+    line-height: 1.5;
+    border-top: 1px solid #333;
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+  #join-instructions kbd {
+    background: #2a2a40;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #ccc;
+  }
 `;
 
 export class JoinScreen {
@@ -126,6 +143,12 @@ export class JoinScreen {
         </label>
         <div id="join-error"></div>
         <button id="join-btn">Join</button>
+        <div id="join-instructions">
+          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move<br>
+          Race to the goal marker before other players<br>
+          Bump into others to knock them back<br>
+          Collect cyan orbs for a speed boost
+        </div>
       </div>
     `;
     document.body.appendChild(this.#el);

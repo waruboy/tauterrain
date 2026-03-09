@@ -16,6 +16,18 @@ export class Character {
   get rotationY() { return this.#group.rotation.y; }
   set speedMultiplier(v) { this.#speedMultiplier = v; }
 
+  setColor(color) {
+    this.#group.traverse((obj) => {
+      if (obj.isMesh && !obj.userData.cap) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(m => { m.color.set(color); });
+        } else {
+          obj.material.color.set(color);
+        }
+      }
+    });
+  }
+
   update(delta, keys) {
     if (keys['a'])  this.#group.rotation.y += this.#turnSpeed * delta;
     if (keys['d']) this.#group.rotation.y -= this.#turnSpeed * delta;
@@ -60,9 +72,11 @@ export class Character {
 
     const capCrown = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.25, 0.85), capMaterial);
     capCrown.position.set(0, 2.375, 0);
+    capCrown.userData.cap = true;
 
     const capBrim = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.08, 0.4), capMaterial);
     capBrim.position.set(0, 2.25, 0.575);
+    capBrim.userData.cap = true;
 
     const group = new THREE.Group();
     group.add(body);
